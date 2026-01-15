@@ -1,4 +1,4 @@
-<!DOCTYPE html >
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -229,7 +229,7 @@
             </div>
             <div class="grid-2 section">
                 <div class="card"><div class="card-title">&#128200; Status Distribution</div><div class="chart-container"><canvas id="founderStatusChart"></canvas></div></div>
-                <div class="card"><div class="card-title">&#128176; Cost by Category</div><div class="chart-container"><canvas id="founderCostChart"></canvas></div></div>
+                <div class="card"><div class="card-title">&#128202; By Category</div><div class="chart-container"><canvas id="founderCostChart"></canvas></div></div>
             </div>
             <div class="grid-2 section">
                 <div class="card"><div class="card-title">&#127942; Top 5 by ROI</div><div class="top-list" id="topRoiList"></div></div>
@@ -309,7 +309,7 @@
             // Sheet name for changelog (optional)
             CHANGELOG_SHEET: 'Change Log',
 
-            // Auto-refresh interval in milliseconds (1 minutes = 60000)
+            // Auto-refresh interval in milliseconds (1 minute = 60000)
             REFRESH_INTERVAL: 60000,
 
             // Your n8n base URL
@@ -365,6 +365,7 @@
 
         // Global data storage
         let automations = [];
+        let summaryStats = {};
         let issues = [];
         let changelog = [];
         let charts = {};
@@ -389,9 +390,27 @@
             }
         }
 
+        // Parse Summary Stats sheet (key-value format)
+        function parseSummaryStats(data) {
+            const stats = {};
+            data.forEach(row => {
+                if (row[0] && row[1] !== undefined && row[1] !== null && row[1] !== '') {
+                    const key = row[0].toString().trim();
+                    const value = parseFloat(row[1]) || 0;
+                    stats[key] = value;
+                }
+            });
+            return stats;
+        }
+
         async function loadAllData() {
             try {
                 showLoading(true);
+
+                // Fetch Summary Stats data
+                const summaryData = await fetchSheetData('Summary Stats');
+                summaryStats = parseSummaryStats(summaryData);
+                console.log('Summary Stats loaded:', summaryStats);
 
                 // Fetch main automation data
                 const mainData = await fetchSheetData(CONFIG.MAIN_SHEET);
@@ -530,14 +549,16 @@
         }
 
         // ============================================
-        // FOUNDER VIEW
+        // FOUNDER VIEW (Using Summary Stats)
         // ============================================
         function updateFounderView() {
-            const totalCost = automations.reduce((sum, a) => sum + a.monthlyCost, 0);
-            const totalValue = automations.reduce((sum, a) => sum + a.value, 0);
-            const totalTimeSaved = automations.reduce((sum, a) => sum + a.timeSaved, 0);
-            const netSavings = totalValue - totalCost;
-            const overallRoi = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
+            // Get values from Summary Stats sheet
+            const totalCost = summaryStats['Monthly Cost ($)'] || 0;
+            const totalValue = summaryStats['Monthly Value ($)'] || 0;
+            const netSavings = summaryStats['Net Savings ($)'] || 0;
+            const overallRoi = summaryStats['Overall ROI (%)'] || 0;
+            const totalTimeSaved = summaryStats['Time Saved (hrs/mo)'] || 0;
+            const totalAutomations = summaryStats['Total Automations'] || automations.length;
 
             document.getElementById('kpiMonthlyCost').textContent = '$' + totalCost.toFixed(0);
             document.getElementById('kpiMonthlyValue').textContent = '$' + totalValue.toLocaleString();
@@ -545,12 +566,12 @@
             document.getElementById('kpiRoi').textContent = overallRoi.toFixed(0) + '%';
             document.getElementById('kpiRoiSub').textContent = (overallRoi / 100).toFixed(0) + 'x return';
             document.getElementById('kpiTimeSaved').textContent = totalTimeSaved.toFixed(0) + 'h';
-            document.getElementById('kpiAutomationCount').textContent = `Across ${automations.length} automations`;
+            document.getElementById('kpiAutomationCount').textContent = `Across ${totalAutomations} automations`;
 
-            // Risk indicators
-            const criticalDown = automations.filter(a => a.status === 'Running' && a.health < 50).length;
-            const noBackup = automations.filter(a => !a.backup || a.backup.trim() === '').length;
-            const openIssues = automations.reduce((sum, a) => sum + a.openIssues, 0);
+            // Risk indicators from Summary Stats
+            const criticalDown = summaryStats['Critical Down'] || 0;
+            const noBackup = summaryStats['No Backup Owner'] || 0;
+            const openIssues = summaryStats['Open Issues'] || 0;
 
             document.getElementById('riskCritical').textContent = criticalDown;
             document.getElementById('riskCritical').className = 'risk-value ' + (criticalDown === 0 ? 'ok' : 'danger');
@@ -592,24 +613,23 @@
         }
 
         // ============================================
-        // MANAGER VIEW
+        // MANAGER VIEW (Using Summary Stats)
         // ============================================
         function updateManagerView() {
-            const activeAutomations = automations.filter(a => a.status === 'Running' || a.status === 'Deployed');
-            const totalExecToday = automations.reduce((sum, a) => sum + a.execToday, 0);
-            const avgSuccessRate = activeAutomations.length > 0
-                ? activeAutomations.reduce((sum, a) => sum + a.successRate, 0) / activeAutomations.length
-                : 0;
+            // Get values from Summary Stats sheet
+            const totalExecToday = summaryStats['Total Executions'] || 0;
+            const failures = summaryStats['Failures'] || 0;
+            const avgSuccessRate = summaryStats['Success Rate (%)'] || 0;
             const failureRate = 100 - avgSuccessRate;
-            const failures = Math.round(totalExecToday * (failureRate / 100));
 
+            // Status counts from Summary Stats
             const statusCounts = {
-                Running: automations.filter(a => a.status === 'Running').length,
-                Deployed: automations.filter(a => a.status === 'Deployed').length,
-                Testing: automations.filter(a => a.status === 'Testing').length,
-                Building: automations.filter(a => a.status === 'Building').length,
-                HOLD: automations.filter(a => a.status === 'HOLD').length,
-                Done: automations.filter(a => a.status === 'Done').length
+                Running: summaryStats['Running'] || 0,
+                Deployed: summaryStats['Deployed'] || 0,
+                Testing: summaryStats['Testing'] || 0,
+                Building: summaryStats['Building'] || 0,
+                HOLD: summaryStats['On Hold'] || 0,
+                Done: summaryStats['Completed'] || 0
             };
 
             document.getElementById('kpiHealth').textContent = avgSuccessRate.toFixed(1) + '%';
@@ -702,18 +722,17 @@
             document.getElementById('kpiDocs').textContent = documented;
             document.getElementById('kpiErrors').textContent = errors;
 
-            // Dependency map
-            const apiDeps = {};
-            automations.forEach(a => {
-                if (a.api && (a.status === 'Running' || a.status === 'Deployed')) {
-                    apiDeps[a.api] = (apiDeps[a.api] || 0) + 1;
-                }
-            });
+            // Dependency map (from Summary Stats API DEPENDENCIES section)
+            const apiDeps = {
+                'OpenAI': summaryStats['OpenAI'] || 0,
+                'Google Cloud': summaryStats['Google Cloud'] || 0,
+                'REST API': summaryStats['REST API'] || 0
+            };
 
             const dependencyMap = document.getElementById('dependencyMap');
             dependencyMap.innerHTML = Object.entries(apiDeps)
+                .filter(([api, count]) => count > 0)
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 4)
                 .map(([api, count]) => {
                     const iconClass = api.toLowerCase().includes('openai') ? 'openai' :
                                      api.toLowerCase().includes('google') ? 'google' : 'rest';
@@ -750,14 +769,14 @@
             Chart.defaults.color = '#a1a1aa';
             Chart.defaults.font.family = "'Space Grotesk', sans-serif";
 
-            // Status distribution chart
+            // Status distribution chart (from Summary Stats)
             const statusCounts = {
-                Running: automations.filter(a => a.status === 'Running').length,
-                Deployed: automations.filter(a => a.status === 'Deployed').length,
-                Testing: automations.filter(a => a.status === 'Testing').length,
-                Building: automations.filter(a => a.status === 'Building').length,
-                HOLD: automations.filter(a => a.status === 'HOLD').length,
-                Done: automations.filter(a => a.status === 'Done').length
+                Running: summaryStats['Running'] || 0,
+                Deployed: summaryStats['Deployed'] || 0,
+                Testing: summaryStats['Testing'] || 0,
+                Building: summaryStats['Building'] || 0,
+                HOLD: summaryStats['On Hold'] || 0,
+                Done: summaryStats['Completed'] || 0
             };
 
             if (charts.statusChart) charts.statusChart.destroy();
@@ -780,20 +799,22 @@
                 }
             });
 
-            // Cost by category chart
-            const categoryCosts = {};
-            automations.forEach(a => {
-                const cat = a.category || 'Other';
-                categoryCosts[cat] = (categoryCosts[cat] || 0) + a.monthlyCost;
+            // Category chart (from Summary Stats BY CATEGORY section - shows count not cost)
+            const categoryKeys = ['Content & Social', 'Internal Operations', 'HR & Recruitment', 'PR & Media', 'Data & Analytics', 'Lead Generation', 'Sales & BD'];
+            const categoryCounts = {};
+            categoryKeys.forEach(key => {
+                if (summaryStats[key]) {
+                    categoryCounts[key] = summaryStats[key];
+                }
             });
 
-            const sortedCategories = Object.entries(categoryCosts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+            const sortedCategories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
             if (charts.costChart) charts.costChart.destroy();
             charts.costChart = new Chart(document.getElementById('founderCostChart'), {
                 type: 'bar',
                 data: {
-                    labels: sortedCategories.map(c => c[0].substring(0, 10)),
+                    labels: sortedCategories.map(c => c[0].substring(0, 12)),
                     datasets: [{
                         data: sortedCategories.map(c => c[1]),
                         backgroundColor: ['#a855f7', '#ec4899', '#f97316', '#3b82f6', '#06b6d4', '#22c55e'],
@@ -805,17 +826,18 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: '#3f3f46' }, ticks: { callback: v => '$' + v } },
+                        y: { grid: { color: '#3f3f46' } },
                         x: { grid: { display: false } }
                     }
                 }
             });
 
-            // Owner chart
+            // Owner chart (from Summary Stats BY OWNER section)
+            const ownerKeys = ['Tarun sir', 'Owais sir', 'Rohan sir', 'Ankush sir', 'Mridul sir', 'Mayur', 'Ankush Sir', 'Rohan Sir', 'Ashwini maam'];
             const ownerCounts = {};
-            automations.forEach(a => {
-                if (a.owner) {
-                    ownerCounts[a.owner] = (ownerCounts[a.owner] || 0) + 1;
+            ownerKeys.forEach(key => {
+                if (summaryStats[key]) {
+                    ownerCounts[key] = summaryStats[key];
                 }
             });
 
