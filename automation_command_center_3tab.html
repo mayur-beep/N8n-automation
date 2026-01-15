@@ -105,7 +105,7 @@
         .capacity-fill.high { background: var(--accent-orange); }
         .pipeline { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
         .pipeline-stage { flex: 1; text-align: center; position: relative; }
-        .pipeline-stage::after { content: '→'; position: absolute; right: -10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 20px; }
+        .pipeline-stage::after { content: '->'; position: absolute; right: -10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 20px; }
         .pipeline-stage:last-child::after { display: none; }
         .pipeline-count { font-size: 36px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
         .pipeline-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
@@ -170,120 +170,107 @@
         .text-red { color: var(--accent-red); }
         .text-yellow { color: var(--accent-yellow); }
         .text-muted { color: var(--text-muted); }
+        /* Loading Overlay */
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .loading-overlay.hidden { display: none; }
+        .loading-spinner { width: 50px; height: 50px; border: 3px solid var(--border); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 16px; color: var(--text-secondary); font-size: 14px; }
+        .error-message { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); border-radius: 8px; padding: 16px; margin: 20px; color: var(--accent-red); }
         @media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } .grid-3 { grid-template-columns: repeat(2, 1fr); } .risk-grid, .api-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .grid-2, .grid-3 { grid-template-columns: 1fr; } .header-content { flex-direction: column; gap: 16px; } }
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading data from Google Sheets...</div>
+    </div>
+
     <header class="header">
         <div class="header-content">
             <div class="logo">
-                <div class="logo-icon">⚡</div>
+                <div class="logo-icon">&#9889;</div>
                 <div class="logo-text">
                     <h1>Automation Command Center</h1>
-                    <p>TBP Media • n8n Workflow Management</p>
+                    <p>TBP Media - n8n Workflow Management</p>
                 </div>
             </div>
             <div class="header-right">
-                <div class="status-live"><span class="status-dot"></span> All Systems Operational</div>
+                <div class="status-live" id="statusIndicator"><span class="status-dot"></span> <span id="statusText">Loading...</span></div>
                 <div class="timestamp" id="timestamp"></div>
             </div>
         </div>
     </header>
     <nav class="tab-nav">
-        <button class="tab-btn active" onclick="switchTab('founder')"><span>📊</span> Founder View</button>
-        <button class="tab-btn" onclick="switchTab('manager')"><span>⚙️</span> Manager View</button>
-        <button class="tab-btn" onclick="switchTab('builder')"><span>🔧</span> Builder View</button>
+        <button class="tab-btn active" onclick="switchTab('founder')"><span>&#128202;</span> Founder View</button>
+        <button class="tab-btn" onclick="switchTab('manager')"><span>&#9881;</span> Manager View</button>
+        <button class="tab-btn" onclick="switchTab('builder')"><span>&#128295;</span> Builder View</button>
     </nav>
     <main class="main">
         <!-- FOUNDER TAB -->
         <div id="founder" class="tab-content active">
-            <div class="kpi-row">
-                <div class="kpi-card green"><div class="kpi-label">Monthly Cost</div><div class="kpi-value">$212</div><div class="kpi-sub">Across 26 automations</div></div>
-                <div class="kpi-card blue"><div class="kpi-label">Monthly Value</div><div class="kpi-value">$3,615</div><div class="kpi-sub up">↑ Time saved × hourly rate</div></div>
-                <div class="kpi-card purple"><div class="kpi-label">Net Savings</div><div class="kpi-value">$3,403</div><div class="kpi-sub up">↑ Value minus cost</div></div>
-                <div class="kpi-card cyan"><div class="kpi-label">Overall ROI</div><div class="kpi-value">1605%</div><div class="kpi-sub up">↑ 16x return</div></div>
-                <div class="kpi-card orange"><div class="kpi-label">Time Saved</div><div class="kpi-value">241h</div><div class="kpi-sub">Per month</div></div>
+            <div class="kpi-row" id="founderKpis">
+                <div class="kpi-card green"><div class="kpi-label">Monthly Cost</div><div class="kpi-value" id="kpiMonthlyCost">$0</div><div class="kpi-sub" id="kpiAutomationCount">Loading...</div></div>
+                <div class="kpi-card blue"><div class="kpi-label">Monthly Value</div><div class="kpi-value" id="kpiMonthlyValue">$0</div><div class="kpi-sub up">Time saved x hourly rate</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Net Savings</div><div class="kpi-value" id="kpiNetSavings">$0</div><div class="kpi-sub up">Value minus cost</div></div>
+                <div class="kpi-card cyan"><div class="kpi-label">Overall ROI</div><div class="kpi-value" id="kpiRoi">0%</div><div class="kpi-sub up" id="kpiRoiSub">Calculating...</div></div>
+                <div class="kpi-card orange"><div class="kpi-label">Time Saved</div><div class="kpi-value" id="kpiTimeSaved">0h</div><div class="kpi-sub">Per month</div></div>
             </div>
             <div class="section">
-                <div class="section-header"><div class="section-title">🚨 Risk Indicators</div></div>
-                <div class="risk-grid">
-                    <div class="risk-item"><div class="risk-value ok">0</div><div class="risk-label">Critical Down</div></div>
-                    <div class="risk-item"><div class="risk-value ok">0</div><div class="risk-label">No Backup Owner</div></div>
-                    <div class="risk-item"><div class="risk-value warn">4</div><div class="risk-label">Open Issues</div></div>
-                    <div class="risk-item"><div class="risk-value warn">1</div><div class="risk-label">API Quota Risk</div></div>
+                <div class="section-header"><div class="section-title">&#128680; Risk Indicators</div></div>
+                <div class="risk-grid" id="riskGrid">
+                    <div class="risk-item"><div class="risk-value ok" id="riskCritical">0</div><div class="risk-label">Critical Down</div></div>
+                    <div class="risk-item"><div class="risk-value ok" id="riskNoBackup">0</div><div class="risk-label">No Backup Owner</div></div>
+                    <div class="risk-item"><div class="risk-value warn" id="riskOpenIssues">0</div><div class="risk-label">Open Issues</div></div>
+                    <div class="risk-item"><div class="risk-value warn" id="riskApiQuota">0</div><div class="risk-label">API Quota Risk</div></div>
                 </div>
             </div>
             <div class="grid-2 section">
-                <div class="card"><div class="card-title">📈 Status Distribution</div><div class="chart-container"><canvas id="founderStatusChart"></canvas></div></div>
-                <div class="card"><div class="card-title">💰 Cost by Category</div><div class="chart-container"><canvas id="founderCostChart"></canvas></div></div>
+                <div class="card"><div class="card-title">&#128200; Status Distribution</div><div class="chart-container"><canvas id="founderStatusChart"></canvas></div></div>
+                <div class="card"><div class="card-title">&#128176; Cost by Category</div><div class="chart-container"><canvas id="founderCostChart"></canvas></div></div>
             </div>
             <div class="grid-2 section">
-                <div class="card"><div class="card-title">🏆 Top 5 by ROI</div>
-                    <div class="top-list">
-                        <div class="top-item"><span class="top-rank">1</span><span class="top-name">SEO Indexing Automation</span><span class="top-value">∞ (Free)</span></div>
-                        <div class="top-item"><span class="top-rank">2</span><span class="top-name">Article Body Scraper</span><span class="top-value">∞ (Free)</span></div>
-                        <div class="top-item"><span class="top-rank">3</span><span class="top-name">YouTube Upload</span><span class="top-value">12,587%</span></div>
-                        <div class="top-item"><span class="top-rank">4</span><span class="top-name">Resume Analysis</span><span class="top-value">8,233%</span></div>
-                        <div class="top-item"><span class="top-rank">5</span><span class="top-name">Twitter Promo Checker</span><span class="top-value">5,900%</span></div>
-                    </div>
-                </div>
-                <div class="card"><div class="card-title">💸 Top 5 by Cost</div>
-                    <div class="top-list">
-                        <div class="top-item"><span class="top-rank">1</span><span class="top-name">Hindi News Generator</span><span class="top-value text-red">$137.50/mo</span></div>
-                        <div class="top-item"><span class="top-rank">2</span><span class="top-name">LinkedIn Auto Posting</span><span class="top-value text-red">$69.45/mo</span></div>
-                        <div class="top-item"><span class="top-rank">3</span><span class="top-name">HR Interview Analysis</span><span class="top-value text-yellow">$0 (HOLD)</span></div>
-                        <div class="top-item"><span class="top-rank">4</span><span class="top-name">YouTube Upload</span><span class="top-value text-yellow">$2.01/mo</span></div>
-                        <div class="top-item"><span class="top-rank">5</span><span class="top-name">SEO Reporting</span><span class="top-value text-yellow">$1.35/mo</span></div>
-                    </div>
-                </div>
+                <div class="card"><div class="card-title">&#127942; Top 5 by ROI</div><div class="top-list" id="topRoiList"></div></div>
+                <div class="card"><div class="card-title">&#128184; Top 5 by Cost</div><div class="top-list" id="topCostList"></div></div>
             </div>
-            <div class="card section"><div class="card-title">👥 Automations by Owner</div><div class="chart-container" style="height:250px"><canvas id="founderOwnerChart"></canvas></div></div>
+            <div class="card section"><div class="card-title">&#128101; Automations by Owner</div><div class="chart-container" style="height:250px"><canvas id="founderOwnerChart"></canvas></div></div>
         </div>
         <!-- MANAGER TAB -->
         <div id="manager" class="tab-content">
-            <div class="kpi-row">
-                <div class="kpi-card green"><div class="kpi-label">Overall Health</div><div class="kpi-value">95.2%</div><div class="kpi-sub up">↑ Success rate</div></div>
-                <div class="kpi-card blue"><div class="kpi-label">Executions Today</div><div class="kpi-value">2,767</div><div class="kpi-sub">Across active automations</div></div>
-                <div class="kpi-card red"><div class="kpi-label">Failures Today</div><div class="kpi-value">133</div><div class="kpi-sub down">4.8% failure rate</div></div>
-                <div class="kpi-card purple"><div class="kpi-label">Active Now</div><div class="kpi-value">11</div><div class="kpi-sub">Running + Deployed</div></div>
-                <div class="kpi-card yellow"><div class="kpi-label">In Pipeline</div><div class="kpi-value">3</div><div class="kpi-sub">Testing + Building</div></div>
+            <div class="kpi-row" id="managerKpis">
+                <div class="kpi-card green"><div class="kpi-label">Overall Health</div><div class="kpi-value" id="kpiHealth">0%</div><div class="kpi-sub up">Success rate</div></div>
+                <div class="kpi-card blue"><div class="kpi-label">Executions Today</div><div class="kpi-value" id="kpiExecToday">0</div><div class="kpi-sub">Across active automations</div></div>
+                <div class="kpi-card red"><div class="kpi-label">Failures Today</div><div class="kpi-value" id="kpiFailures">0</div><div class="kpi-sub down" id="kpiFailureRate">0% failure rate</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Active Now</div><div class="kpi-value" id="kpiActive">0</div><div class="kpi-sub">Running + Deployed</div></div>
+                <div class="kpi-card yellow"><div class="kpi-label">In Pipeline</div><div class="kpi-value" id="kpiPipeline">0</div><div class="kpi-sub">Testing + Building</div></div>
             </div>
-            <div class="card section"><div class="card-title">🔄 Automation Pipeline</div>
-                <div class="pipeline">
-                    <div class="pipeline-stage"><div class="pipeline-count">1</div><div class="pipeline-label">Building</div></div>
-                    <div class="pipeline-stage"><div class="pipeline-count">2</div><div class="pipeline-label">Testing</div></div>
-                    <div class="pipeline-stage"><div class="pipeline-count">2</div><div class="pipeline-label">Deployed</div></div>
-                    <div class="pipeline-stage"><div class="pipeline-count">9</div><div class="pipeline-label">Running</div></div>
+            <div class="card section"><div class="card-title">&#128260; Automation Pipeline</div>
+                <div class="pipeline" id="pipelineStages">
+                    <div class="pipeline-stage"><div class="pipeline-count" id="pipeBuilding">0</div><div class="pipeline-label">Building</div></div>
+                    <div class="pipeline-stage"><div class="pipeline-count" id="pipeTesting">0</div><div class="pipeline-label">Testing</div></div>
+                    <div class="pipeline-stage"><div class="pipeline-count" id="pipeDeployed">0</div><div class="pipeline-label">Deployed</div></div>
+                    <div class="pipeline-stage"><div class="pipeline-count" id="pipeRunning">0</div><div class="pipeline-label">Running</div></div>
                 </div>
             </div>
             <div class="grid-2 section">
-                <div class="card"><div class="card-title">🚨 Needs Attention Now</div>
-                    <div class="alert-box warning"><div class="alert-header"><div class="alert-title">YouTube Upload Automation</div><span class="alert-badge medium">Medium</span></div><div class="alert-desc">Fix description generation before uploading shorts</div><div class="alert-meta"><span>👤 Mridul sir</span><span>📅 Open since Jan 10</span></div></div>
-                    <div class="alert-box warning"><div class="alert-header"><div class="alert-title">LinkedIn Auto Posting</div><span class="alert-badge medium">Medium</span></div><div class="alert-desc">Change image style - design update needed</div><div class="alert-meta"><span>👤 Rohan sir</span><span>📅 Open since Jan 8</span></div></div>
-                    <div class="alert-box"><div class="alert-header"><div class="alert-title">Apify API Quota</div><span class="alert-badge high">High</span></div><div class="alert-desc">89% quota used - will hit limit in ~2 days</div><div class="alert-meta"><span>⚠️ Affects 3 automations</span></div></div>
-                </div>
-                <div class="card"><div class="card-title">📊 Team Capacity</div>
-                    <div class="capacity-item"><div class="capacity-header"><span class="capacity-name">Tarun sir</span><span class="capacity-count">11 automations</span></div><div class="capacity-bar"><div class="capacity-fill high" style="width:73%"></div></div></div>
-                    <div class="capacity-item"><div class="capacity-header"><span class="capacity-name">Owais sir</span><span class="capacity-count">4 automations</span></div><div class="capacity-bar"><div class="capacity-fill low" style="width:27%"></div></div></div>
-                    <div class="capacity-item"><div class="capacity-header"><span class="capacity-name">Rohan sir</span><span class="capacity-count">4 automations</span></div><div class="capacity-bar"><div class="capacity-fill low" style="width:27%"></div></div></div>
-                    <div class="capacity-item"><div class="capacity-header"><span class="capacity-name">Ankush sir</span><span class="capacity-count">3 automations</span></div><div class="capacity-bar"><div class="capacity-fill low" style="width:20%"></div></div></div>
-                    <div class="capacity-item"><div class="capacity-header"><span class="capacity-name">Others</span><span class="capacity-count">4 automations</span></div><div class="capacity-bar"><div class="capacity-fill low" style="width:27%"></div></div></div>
-                </div>
+                <div class="card"><div class="card-title">&#128680; Needs Attention Now</div><div id="alertsContainer"></div></div>
+                <div class="card"><div class="card-title">&#128202; Team Capacity</div><div id="capacityContainer"></div></div>
             </div>
-            <div class="card section"><div class="card-title">📋 All Automations Status</div><table id="managerTable"><thead><tr><th>Automation</th><th>Status</th><th>Health</th><th>Last Run</th><th>Today</th><th>Success %</th><th>Owner</th><th>Backup</th></tr></thead><tbody></tbody></table></div>
+            <div class="card section"><div class="card-title">&#128203; All Automations Status</div><table id="managerTable"><thead><tr><th>Automation</th><th>Status</th><th>Health</th><th>Last Run</th><th>Today</th><th>Success %</th><th>Owner</th><th>Backup</th></tr></thead><tbody></tbody></table></div>
         </div>
         <!-- BUILDER TAB -->
         <div id="builder" class="tab-content">
-            <div class="kpi-row">
-                <div class="kpi-card blue"><div class="kpi-label">Total Nodes</div><div class="kpi-value">847</div><div class="kpi-sub">Across all workflows</div></div>
-                <div class="kpi-card green"><div class="kpi-label">Avg Exec Time</div><div class="kpi-value">18.4s</div><div class="kpi-sub">Per automation</div></div>
-                <div class="kpi-card yellow"><div class="kpi-label">APIs Connected</div><div class="kpi-value">7</div><div class="kpi-sub">External services</div></div>
-                <div class="kpi-card purple"><div class="kpi-label">Documented</div><div class="kpi-value">5</div><div class="kpi-sub">Complete docs</div></div>
-                <div class="kpi-card red"><div class="kpi-label">Errors Today</div><div class="kpi-value">133</div><div class="kpi-sub">Needs attention</div></div>
+            <div class="kpi-row" id="builderKpis">
+                <div class="kpi-card blue"><div class="kpi-label">Total Nodes</div><div class="kpi-value" id="kpiNodes">0</div><div class="kpi-sub">Across all workflows</div></div>
+                <div class="kpi-card green"><div class="kpi-label">Avg Exec Time</div><div class="kpi-value" id="kpiAvgTime">0s</div><div class="kpi-sub">Per automation</div></div>
+                <div class="kpi-card yellow"><div class="kpi-label">APIs Connected</div><div class="kpi-value" id="kpiApis">0</div><div class="kpi-sub">External services</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Documented</div><div class="kpi-value" id="kpiDocs">0</div><div class="kpi-sub">Complete docs</div></div>
+                <div class="kpi-card red"><div class="kpi-label">Errors Today</div><div class="kpi-value" id="kpiErrors">0</div><div class="kpi-sub">Needs attention</div></div>
             </div>
-            <div class="section"><div class="section-header"><div class="section-title">📊 API Quota Usage</div></div>
-                <div class="api-grid">
+            <div class="section"><div class="section-header"><div class="section-title">&#128202; API Quota Usage</div></div>
+                <div class="api-grid" id="apiQuotaGrid">
                     <div class="api-item"><div class="api-name">OpenAI</div><div class="api-gauge"><svg viewBox="0 0 100 100"><circle class="api-gauge-bg" cx="50" cy="50" r="40"></circle><circle class="api-gauge-fill warning" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="83"></circle></svg><span class="api-percent">67%</span></div><span class="api-status warning">Warning</span></div>
                     <div class="api-item"><div class="api-name">Google Cloud</div><div class="api-gauge"><svg viewBox="0 0 100 100"><circle class="api-gauge-bg" cx="50" cy="50" r="40"></circle><circle class="api-gauge-fill healthy" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="193"></circle></svg><span class="api-percent">23%</span></div><span class="api-status healthy">Healthy</span></div>
                     <div class="api-item"><div class="api-name">Apify</div><div class="api-gauge"><svg viewBox="0 0 100 100"><circle class="api-gauge-bg" cx="50" cy="50" r="40"></circle><circle class="api-gauge-fill critical" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="28"></circle></svg><span class="api-percent">89%</span></div><span class="api-status critical">Critical</span></div>
@@ -291,71 +278,654 @@
                 </div>
             </div>
             <div class="grid-2 section">
-                <div class="card"><div class="card-title">🔗 Dependency Impact Map</div>
-                    <div class="dep-map">
-                        <div class="dep-item"><div class="dep-icon openai">🤖</div><div class="dep-info"><div class="dep-name">OpenAI</div><div class="dep-count">9 automations depend on this</div></div><div class="dep-impact">If down → 9 break</div></div>
-                        <div class="dep-item"><div class="dep-icon google">☁️</div><div class="dep-info"><div class="dep-name">Google Cloud</div><div class="dep-count">9 automations depend on this</div></div><div class="dep-impact">If down → 9 break</div></div>
-                        <div class="dep-item"><div class="dep-icon rest">🔌</div><div class="dep-info"><div class="dep-name">REST API</div><div class="dep-count">8 automations depend on this</div></div><div class="dep-impact">If down → 8 break</div></div>
-                    </div>
-                </div>
-                <div class="card"><div class="card-title">📝 Recent Changes</div>
-                    <div class="changelog">
-                        <div class="changelog-item"><div class="changelog-date">Jan 12</div><div class="changelog-content"><div class="changelog-auto">LinkedIn Post Generation</div><div class="changelog-desc">Added Gmail approval workflow</div></div><span class="changelog-type enhancement">Enhancement</span><div class="changelog-by">Rohan</div></div>
-                        <div class="changelog-item"><div class="changelog-date">Jan 10</div><div class="changelog-content"><div class="changelog-auto">Resume Analysis</div><div class="changelog-desc">Fixed email parsing</div></div><span class="changelog-type bugfix">Bug Fix</span><div class="changelog-by">Mayur</div></div>
-                        <div class="changelog-item"><div class="changelog-date">Jan 08</div><div class="changelog-content"><div class="changelog-auto">YouTube Upload</div><div class="changelog-desc">Updated description generation</div></div><span class="changelog-type bugfix">Bug Fix</span><div class="changelog-by">Tarun</div></div>
-                        <div class="changelog-item"><div class="changelog-date">Jan 05</div><div class="changelog-content"><div class="changelog-auto">SEO Indexing</div><div class="changelog-desc">Increased batch size to 100</div></div><span class="changelog-type config">Config</span><div class="changelog-by">Owais</div></div>
-                    </div>
-                </div>
+                <div class="card"><div class="card-title">&#128279; Dependency Impact Map</div><div class="dep-map" id="dependencyMap"></div></div>
+                <div class="card"><div class="card-title">&#128221; Recent Changes</div><div class="changelog" id="changelogContainer"></div></div>
             </div>
             <div class="grid-2 section">
-                <div class="card"><div class="card-title">⚡ Performance Leaderboard</div>
-                    <div class="top-list">
-                        <div class="top-item"><span class="top-rank" style="background:var(--accent-green)">🏆</span><span class="top-name">Fastest: Article Body Scraper</span><span class="top-value">3.2s avg</span></div>
-                        <div class="top-item"><span class="top-rank" style="background:var(--accent-red)">🐢</span><span class="top-name">Slowest: Hindi News Generator</span><span class="top-value text-red">42.1s avg</span></div>
-                        <div class="top-item"><span class="top-rank" style="background:var(--accent-blue)">📈</span><span class="top-name">Most Improved: SEO Indexing</span><span class="top-value">-18% this week</span></div>
-                        <div class="top-item"><span class="top-rank" style="background:var(--accent-yellow)">⚠️</span><span class="top-name">Degraded: WordPress Publisher</span><span class="top-value text-yellow">+12% this week</span></div>
-                    </div>
-                </div>
-                <div class="card"><div class="card-title">🔴 Error Analysis (Last 30 Days)</div><div class="chart-container"><canvas id="builderErrorChart"></canvas></div></div>
+                <div class="card"><div class="card-title">&#9889; Performance Leaderboard</div><div class="top-list" id="performanceList"></div></div>
+                <div class="card"><div class="card-title">&#128308; Error Analysis (Last 30 Days)</div><div class="chart-container"><canvas id="builderErrorChart"></canvas></div></div>
             </div>
-            <div class="card section"><div class="card-title">🔧 Technical Details</div><table id="builderTable"><thead><tr><th>Automation</th><th>Trigger</th><th>Schedule</th><th>Primary API</th><th>Nodes</th><th>Avg Time</th><th>Docs</th><th>n8n Link</th></tr></thead><tbody></tbody></table></div>
+            <div class="card section"><div class="card-title">&#128295; Technical Details</div><table id="builderTable"><thead><tr><th>Automation</th><th>Trigger</th><th>Schedule</th><th>Primary API</th><th>Nodes</th><th>Avg Time</th><th>Docs</th><th>n8n Link</th></tr></thead><tbody></tbody></table></div>
         </div>
     </main>
+
     <script>
-        const automations = [
-            {name:"Youtube Upload automation",status:"Running",health:80,lastRun:"2026-01-13 08:52",execToday:377,successRate:97.6,owner:"Mridul sir",backup:"Lakshya",trigger:"Schedule",schedule:"Every 15 mins",api:"OpenAI",nodes:63,avgTime:12.0,docs:"Complete",url:"wf_6574"},
-            {name:"SEO Indexing Automation",status:"Running",health:80,lastRun:"2026-01-13 02:52",execToday:381,successRate:96.8,owner:"Owais sir",backup:"Mayur",trigger:"Schedule",schedule:"Every 15 mins",api:"Google Cloud",nodes:76,avgTime:34.3,docs:"Complete",url:"wf_5339"},
-            {name:"Article body Scraper",status:"Running",health:72,lastRun:"2026-01-13 10:52",execToday:348,successRate:93.6,owner:"Tarun sir",backup:"Megha",trigger:"Schedule",schedule:"Daily 9 AM",api:"REST API",nodes:23,avgTime:15.3,docs:"None",url:"wf_5371"},
-            {name:"Wordpress publisher",status:"Running",health:85,lastRun:"2026-01-13 05:52",execToday:289,successRate:98.2,owner:"Tarun sir",backup:"Rahul",trigger:"Schedule",schedule:"Every hour",api:"REST API",nodes:18,avgTime:8.4,docs:"Partial",url:"wf_4892"},
-            {name:"Linkedin Automatic Posting",status:"Running",health:78,lastRun:"2026-01-12 22:52",execToday:156,successRate:94.8,owner:"Rohan sir",backup:"Vineet",trigger:"Schedule",schedule:"Daily 6 PM",api:"OpenAI",nodes:34,avgTime:22.1,docs:"Partial",url:"wf_3821"},
-            {name:"WordPress Classification",status:"Running",health:90,lastRun:"2026-01-13 11:52",execToday:412,successRate:99.1,owner:"Tarun sir",backup:"Lakshya",trigger:"Webhook",schedule:"",api:"REST API",nodes:45,avgTime:6.2,docs:"Complete",url:"wf_7234"},
-            {name:"Meeting Recording Proposal",status:"Running",health:75,lastRun:"2026-01-13 09:52",execToday:67,successRate:92.4,owner:"Tarun sir",backup:"Ashutosh",trigger:"Manual",schedule:"",api:"OpenAI",nodes:52,avgTime:38.5,docs:"None",url:"wf_8912"},
-            {name:"Resume analysis & scoring",status:"Running",health:88,lastRun:"2026-01-13 07:52",execToday:234,successRate:98.5,owner:"Tarun sir",backup:"Mayur",trigger:"Email Trigger",schedule:"",api:"OpenAI",nodes:28,avgTime:14.2,docs:"Complete",url:"wf_2345"},
-            {name:"Twitter Post Promotion",status:"Running",health:82,lastRun:"2026-01-13 06:52",execToday:189,successRate:95.3,owner:"Mayur",backup:"Lakshya",trigger:"Schedule",schedule:"Every 6 hours",api:"REST API",nodes:31,avgTime:11.8,docs:"Partial",url:"wf_6789"},
-            {name:"LinkedIn Post Generation",status:"Deployed",health:94,lastRun:"2026-01-13 09:52",execToday:244,successRate:99.1,owner:"Rohan Sir",backup:"Rahul",trigger:"Schedule",schedule:"Every 15 mins",api:"Google Cloud",nodes:43,avgTime:39.4,docs:"Partial",url:"wf_2375"},
-            {name:"Linkedin AI-Content",status:"Deployed",health:78,lastRun:"2026-01-12 03:52",execToday:158,successRate:94.5,owner:"Rohan Sir",backup:"Lakshya",trigger:"Schedule",schedule:"Every hour",api:"Google Cloud",nodes:8,avgTime:28.5,docs:"Complete",url:"wf_7043"},
-            {name:"Resume Analysis Email",status:"Testing",health:65,lastRun:"2026-01-12 14:52",execToday:23,successRate:82.1,owner:"Ashwini maam",backup:"Mayur",trigger:"Email Trigger",schedule:"",api:"OpenAI",nodes:35,avgTime:18.9,docs:"None",url:"wf_4521"},
-            {name:"WhatsApp Group Adding",status:"Testing",health:60,lastRun:"2026-01-11 16:52",execToday:12,successRate:75.4,owner:"Ankush Sir",backup:"Vineet",trigger:"Manual",schedule:"",api:"REST API",nodes:22,avgTime:5.2,docs:"None",url:"wf_8834"},
-            {name:"Sales Call Analysis",status:"Building",health:0,lastRun:"2026-01-10 11:52",execToday:0,successRate:0,owner:"Ankush Sir",backup:"Ashutosh",trigger:"Webhook",schedule:"",api:"OpenAI",nodes:48,avgTime:0,docs:"None",url:"wf_9923"},
-            {name:"Youtube Script Writer",status:"HOLD",health:0,lastRun:"2025-11-14 18:52",execToday:0,successRate:0,owner:"Mridul sir",backup:"Ashutosh",trigger:"Manual",schedule:"",api:"OpenAI",nodes:42,avgTime:29.4,docs:"None",url:"wf_2291"},
-            {name:"Blog Content Distribution",status:"HOLD",health:0,lastRun:"2025-12-27 18:52",execToday:0,successRate:0,owner:"Owais sir",backup:"Lakshya",trigger:"Schedule",schedule:"Weekdays 10 AM",api:"OpenAI",nodes:8,avgTime:18.5,docs:"None",url:"wf_8428"},
-            {name:"LinkedIn Profile Scraper",status:"HOLD",health:0,lastRun:"2025-12-01 18:52",execToday:0,successRate:0,owner:"Rohan sir",backup:"Megha",trigger:"Manual",schedule:"",api:"REST API",nodes:19,avgTime:12.3,docs:"None",url:"wf_3392"},
-            {name:"Hindi News Article Gen",status:"HOLD",health:0,lastRun:"2025-11-28 18:52",execToday:0,successRate:0,owner:"Owais sir",backup:"Rahul",trigger:"Schedule",schedule:"Daily 9 AM",api:"OpenAI",nodes:56,avgTime:42.1,docs:"None",url:"wf_7821"},
-            {name:"Twitter Cryptowala",status:"HOLD",health:0,lastRun:"2025-12-15 18:52",execToday:0,successRate:0,owner:"Tarun sir",backup:"Vineet",trigger:"Schedule",schedule:"Every hour",api:"REST API",nodes:24,avgTime:9.8,docs:"None",url:"wf_4456"},
-            {name:"HR Interview Analysis",status:"HOLD",health:0,lastRun:"2025-11-20 18:52",execToday:0,successRate:0,owner:"Ankush sir",backup:"Lakshya",trigger:"Manual",schedule:"",api:"OpenAI",nodes:38,avgTime:35.6,docs:"None",url:"wf_9912"}
-        ];
-        function updateTimestamp(){document.getElementById('timestamp').textContent=new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}
-        updateTimestamp();setInterval(updateTimestamp,60000);
-        function switchTab(tabId){document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById(tabId).classList.add('active');event.target.closest('.tab-btn').classList.add('active');}
-        Chart.defaults.color='#a1a1aa';Chart.defaults.font.family="'Space Grotesk',sans-serif";
-        new Chart(document.getElementById('founderStatusChart'),{type:'doughnut',data:{labels:['Running','Deployed','Testing','Building','HOLD','Done'],datasets:[{data:[9,2,2,1,6,6],backgroundColor:['#22c55e','#06b6d4','#eab308','#3b82f6','#ef4444','#71717a'],borderWidth:0,spacing:3}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{boxWidth:12,padding:10,font:{size:11}}}}}});
-        new Chart(document.getElementById('founderCostChart'),{type:'bar',data:{labels:['Content','HR','Sales','PR','Data','Ops'],datasets:[{data:[145,42,15,8,2,0],backgroundColor:['#a855f7','#ec4899','#f97316','#3b82f6','#06b6d4','#22c55e'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#3f3f46'},ticks:{callback:v=>'$'+v}},x:{grid:{display:false}}}}});
-        new Chart(document.getElementById('founderOwnerChart'),{type:'bar',data:{labels:['Tarun sir','Owais sir','Rohan sir','Ankush sir','Mridul sir','Others'],datasets:[{label:'Automations',data:[11,4,4,3,2,2],backgroundColor:'#3b82f6',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#3f3f46'}},y:{grid:{display:false}}}}});
-        new Chart(document.getElementById('builderErrorChart'),{type:'doughnut',data:{labels:['API Timeout','Rate Limit','Auth Failed','Data Error','Network'],datasets:[{data:[45,32,18,24,14],backgroundColor:['#ef4444','#f97316','#eab308','#a855f7','#3b82f6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{position:'right',labels:{boxWidth:10,padding:8,font:{size:10}}}}}});
-        const managerTableBody=document.querySelector('#managerTable tbody');
-        automations.forEach(a=>{const statusClass=a.status.toLowerCase().replace(' ','');const healthClass=a.health>=80?'good':a.health>=60?'ok':'bad';const row=document.createElement('tr');row.innerHTML='<td><strong>'+a.name+'</strong></td><td><span class="status-badge '+statusClass+'">● '+a.status+'</span></td><td><div class="health-bar"><div class="health-fill '+healthClass+'" style="width:'+a.health+'%"></div></div><span class="mono" style="font-size:11px;color:var(--text-muted)">'+a.health+'%</span></td><td class="mono text-muted" style="font-size:11px">'+a.lastRun+'</td><td class="mono">'+a.execToday+'</td><td class="mono '+(a.successRate>=95?'text-green':a.successRate>=85?'text-yellow':'text-red')+'">'+a.successRate+'%</td><td>'+a.owner+'</td><td class="text-muted">'+a.backup+'</td>';managerTableBody.appendChild(row);});
-        const builderTableBody=document.querySelector('#builderTable tbody');
-        automations.forEach(a=>{const row=document.createElement('tr');row.innerHTML='<td><strong>'+a.name+'</strong></td><td>'+a.trigger+'</td><td class="text-muted">'+(a.schedule||'-')+'</td><td>'+a.api+'</td><td class="mono">'+a.nodes+'</td><td class="mono">'+a.avgTime+'s</td><td><span class="'+(a.docs==='Complete'?'text-green':a.docs==='Partial'?'text-yellow':'text-muted')+'">'+a.docs+'</span></td><td><a href="https://n8n.tbpmedia.io/workflow/'+a.url+'" target="_blank" style="color:var(--accent-blue)">Open →</a></td>';builderTableBody.appendChild(row);});
+        // ============================================
+        // CONFIGURATION - UPDATE THESE VALUES
+        // ============================================
+        const CONFIG = {
+            // Your Google Sheet ID (from the URL)
+            SHEET_ID: '1ih_9iyfWNQXtXbAQBKxivwg05lT_U2fH068wsY_PG3I',
+
+            // Your Google API Key
+            API_KEY: 'AIzaSyDiIA75Y8N10JpR0J5jeSy-se4WGtldV4Q',
+
+            // Sheet name for main automation data
+            MAIN_SHEET: 'Master Registry',
+
+            // Sheet name for issues (optional)
+            ISSUES_SHEET: 'Issues',
+
+            // Sheet name for changelog (optional)
+            CHANGELOG_SHEET: 'Change Log',
+
+            // Auto-refresh interval in milliseconds (5 minutes = 300000)
+            REFRESH_INTERVAL: 300000,
+
+            // Your n8n base URL
+            N8N_BASE_URL: 'https://n8n.tbpmedia.io/workflow/'
+        };
+
+        // ============================================
+        // COLUMN MAPPING (0-indexed based on your Excel)
+        // ============================================
+        const COLUMNS = {
+            ID: 0,
+            NAME: 1,
+            WORKFLOW_ID: 2,
+            URL: 3,
+            CATEGORY: 4,
+            DEPARTMENT: 5,
+            STATUS: 6,
+            PRIORITY: 7,
+            BUSINESS_IMPACT: 8,
+            COMPLEXITY: 9,
+            HEALTH: 10,
+            OWNER: 11,
+            BACKUP: 12,
+            REQUESTER: 13,
+            CREATED: 14,
+            GO_LIVE: 15,
+            LAST_MODIFIED: 16,
+            NEXT_REVIEW: 17,
+            LAST_RUN: 18,
+            EXEC_TODAY: 19,
+            EXEC_WEEK: 20,
+            EXEC_MONTH: 21,
+            SUCCESS_RATE: 22,
+            AVG_TIME: 23,
+            PEAK_TIME: 24,
+            COST_TYPE: 25,
+            COST_UNIT: 26,
+            MONTHLY_COST: 27,
+            TIME_SAVED: 28,
+            VALUE: 29,
+            ROI: 30,
+            TRIGGER: 31,
+            SCHEDULE: 32,
+            PRIMARY_API: 33,
+            NODES: 34,
+            DOC_STATUS: 35,
+            VIDEO: 36,
+            GUMROAD: 37,
+            PRICE: 38,
+            OPEN_ISSUES: 39,
+            FEEDBACK: 40
+        };
+
+        // Global data storage
+        let automations = [];
+        let issues = [];
+        let changelog = [];
+        let charts = {};
+
+        // ============================================
+        // FETCH DATA FROM GOOGLE SHEETS
+        // ============================================
+        async function fetchSheetData(sheetName, range = '') {
+            const rangeParam = range || `${sheetName}!A:AZ`;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(rangeParam)}?key=${CONFIG.API_KEY}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data.values || [];
+            } catch (error) {
+                console.error(`Error fetching ${sheetName}:`, error);
+                throw error;
+            }
+        }
+
+        async function loadAllData() {
+            try {
+                showLoading(true);
+
+                // Fetch main automation data
+                const mainData = await fetchSheetData(CONFIG.MAIN_SHEET);
+
+                if (mainData.length < 2) {
+                    throw new Error('No data found in sheet');
+                }
+
+                // Parse automation data (skip header row)
+                automations = mainData.slice(1).map(row => ({
+                    id: row[COLUMNS.ID] || '',
+                    name: row[COLUMNS.NAME] || '',
+                    workflowId: row[COLUMNS.WORKFLOW_ID] || '',
+                    url: row[COLUMNS.URL] || '',
+                    category: row[COLUMNS.CATEGORY] || '',
+                    department: row[COLUMNS.DEPARTMENT] || '',
+                    status: row[COLUMNS.STATUS] || '',
+                    priority: row[COLUMNS.PRIORITY] || '',
+                    businessImpact: parseFloat(row[COLUMNS.BUSINESS_IMPACT]) || 0,
+                    complexity: row[COLUMNS.COMPLEXITY] || '',
+                    health: parseFloat(row[COLUMNS.HEALTH]) || 0,
+                    owner: row[COLUMNS.OWNER] || '',
+                    backup: row[COLUMNS.BACKUP] || '',
+                    requester: row[COLUMNS.REQUESTER] || '',
+                    created: row[COLUMNS.CREATED] || '',
+                    goLive: row[COLUMNS.GO_LIVE] || '',
+                    lastModified: row[COLUMNS.LAST_MODIFIED] || '',
+                    nextReview: row[COLUMNS.NEXT_REVIEW] || '',
+                    lastRun: row[COLUMNS.LAST_RUN] || '',
+                    execToday: parseInt(row[COLUMNS.EXEC_TODAY]) || 0,
+                    execWeek: parseInt(row[COLUMNS.EXEC_WEEK]) || 0,
+                    execMonth: parseInt(row[COLUMNS.EXEC_MONTH]) || 0,
+                    successRate: parseFloat(row[COLUMNS.SUCCESS_RATE]) || 0,
+                    avgTime: parseFloat(row[COLUMNS.AVG_TIME]) || 0,
+                    peakTime: parseFloat(row[COLUMNS.PEAK_TIME]) || 0,
+                    costType: row[COLUMNS.COST_TYPE] || '',
+                    costUnit: parseFloat(row[COLUMNS.COST_UNIT]) || 0,
+                    monthlyCost: parseFloat(row[COLUMNS.MONTHLY_COST]) || 0,
+                    timeSaved: parseFloat(row[COLUMNS.TIME_SAVED]) || 0,
+                    value: parseFloat(row[COLUMNS.VALUE]) || 0,
+                    roi: parseFloat(row[COLUMNS.ROI]) || 0,
+                    trigger: row[COLUMNS.TRIGGER] || '',
+                    schedule: row[COLUMNS.SCHEDULE] || '',
+                    api: row[COLUMNS.PRIMARY_API] || '',
+                    nodes: parseInt(row[COLUMNS.NODES]) || 0,
+                    docs: row[COLUMNS.DOC_STATUS] || '',
+                    video: row[COLUMNS.VIDEO] || '',
+                    gumroad: row[COLUMNS.GUMROAD] || '',
+                    price: parseFloat(row[COLUMNS.PRICE]) || 0,
+                    openIssues: parseInt(row[COLUMNS.OPEN_ISSUES]) || 0,
+                    feedback: row[COLUMNS.FEEDBACK] || ''
+                })).filter(a => a.name); // Filter out empty rows
+
+                console.log(`Loaded ${automations.length} automations`);
+
+                // Initialize dashboard
+                initializeDashboard();
+                showLoading(false);
+                updateStatus('All Systems Operational', true);
+
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                showLoading(false);
+                updateStatus('Data Load Failed', false);
+                showError(error.message);
+            }
+        }
+
+        // ============================================
+        // UI HELPERS
+        // ============================================
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
+        }
+
+        function updateStatus(text, isOk) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            statusText.textContent = text;
+
+            if (isOk) {
+                indicator.style.background = 'rgba(34, 197, 94, 0.1)';
+                indicator.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+                indicator.style.color = 'var(--accent-green)';
+            } else {
+                indicator.style.background = 'rgba(239, 68, 68, 0.1)';
+                indicator.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                indicator.style.color = 'var(--accent-red)';
+            }
+        }
+
+        function showError(message) {
+            const main = document.querySelector('.main');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `<strong>Error loading data:</strong> ${message}<br><br>
+                <strong>Checklist:</strong><br>
+                1. Make sure SHEET_ID is correct<br>
+                2. Make sure API_KEY is correct<br>
+                3. Make sure Google Sheets API is enabled<br>
+                4. Make sure sheet is shared (Anyone with link can view)`;
+            main.insertBefore(errorDiv, main.firstChild);
+        }
+
+        function updateTimestamp() {
+            document.getElementById('timestamp').textContent = new Date().toLocaleString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.closest('.tab-btn').classList.add('active');
+        }
+
+        // ============================================
+        // INITIALIZE DASHBOARD
+        // ============================================
+        function initializeDashboard() {
+            updateTimestamp();
+            setInterval(updateTimestamp, 60000);
+
+            // Calculate and display all metrics
+            updateFounderView();
+            updateManagerView();
+            updateBuilderView();
+
+            // Initialize charts
+            initCharts();
+
+            // Populate tables
+            populateManagerTable();
+            populateBuilderTable();
+        }
+
+        // ============================================
+        // FOUNDER VIEW
+        // ============================================
+        function updateFounderView() {
+            const totalCost = automations.reduce((sum, a) => sum + a.monthlyCost, 0);
+            const totalValue = automations.reduce((sum, a) => sum + a.value, 0);
+            const totalTimeSaved = automations.reduce((sum, a) => sum + a.timeSaved, 0);
+            const netSavings = totalValue - totalCost;
+            const overallRoi = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
+
+            document.getElementById('kpiMonthlyCost').textContent = '$' + totalCost.toFixed(0);
+            document.getElementById('kpiMonthlyValue').textContent = '$' + totalValue.toLocaleString();
+            document.getElementById('kpiNetSavings').textContent = '$' + netSavings.toLocaleString();
+            document.getElementById('kpiRoi').textContent = overallRoi.toFixed(0) + '%';
+            document.getElementById('kpiRoiSub').textContent = (overallRoi / 100).toFixed(0) + 'x return';
+            document.getElementById('kpiTimeSaved').textContent = totalTimeSaved.toFixed(0) + 'h';
+            document.getElementById('kpiAutomationCount').textContent = `Across ${automations.length} automations`;
+
+            // Risk indicators
+            const criticalDown = automations.filter(a => a.status === 'Running' && a.health < 50).length;
+            const noBackup = automations.filter(a => !a.backup || a.backup.trim() === '').length;
+            const openIssues = automations.reduce((sum, a) => sum + a.openIssues, 0);
+
+            document.getElementById('riskCritical').textContent = criticalDown;
+            document.getElementById('riskCritical').className = 'risk-value ' + (criticalDown === 0 ? 'ok' : 'danger');
+            document.getElementById('riskNoBackup').textContent = noBackup;
+            document.getElementById('riskNoBackup').className = 'risk-value ' + (noBackup === 0 ? 'ok' : 'warn');
+            document.getElementById('riskOpenIssues').textContent = openIssues;
+            document.getElementById('riskOpenIssues').className = 'risk-value ' + (openIssues === 0 ? 'ok' : 'warn');
+
+            // Top 5 by ROI
+            const topRoi = [...automations]
+                .filter(a => a.status === 'Running' || a.status === 'Deployed')
+                .sort((a, b) => b.roi - a.roi)
+                .slice(0, 5);
+
+            const topRoiList = document.getElementById('topRoiList');
+            topRoiList.innerHTML = topRoi.map((a, i) => `
+                <div class="top-item">
+                    <span class="top-rank">${i + 1}</span>
+                    <span class="top-name">${a.name}</span>
+                    <span class="top-value">${a.roi === 999 ? '∞ (Free)' : a.roi.toFixed(0) + '%'}</span>
+                </div>
+            `).join('');
+
+            // Top 5 by Cost
+            const topCost = [...automations]
+                .sort((a, b) => b.monthlyCost - a.monthlyCost)
+                .slice(0, 5);
+
+            const topCostList = document.getElementById('topCostList');
+            topCostList.innerHTML = topCost.map((a, i) => `
+                <div class="top-item">
+                    <span class="top-rank">${i + 1}</span>
+                    <span class="top-name">${a.name}</span>
+                    <span class="top-value ${a.monthlyCost > 50 ? 'text-red' : a.monthlyCost > 10 ? 'text-yellow' : ''}">
+                        ${a.status === 'HOLD' ? '$0 (HOLD)' : '$' + a.monthlyCost.toFixed(2) + '/mo'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // ============================================
+        // MANAGER VIEW
+        // ============================================
+        function updateManagerView() {
+            const activeAutomations = automations.filter(a => a.status === 'Running' || a.status === 'Deployed');
+            const totalExecToday = automations.reduce((sum, a) => sum + a.execToday, 0);
+            const avgSuccessRate = activeAutomations.length > 0
+                ? activeAutomations.reduce((sum, a) => sum + a.successRate, 0) / activeAutomations.length
+                : 0;
+            const failureRate = 100 - avgSuccessRate;
+            const failures = Math.round(totalExecToday * (failureRate / 100));
+
+            const statusCounts = {
+                Running: automations.filter(a => a.status === 'Running').length,
+                Deployed: automations.filter(a => a.status === 'Deployed').length,
+                Testing: automations.filter(a => a.status === 'Testing').length,
+                Building: automations.filter(a => a.status === 'Building').length,
+                HOLD: automations.filter(a => a.status === 'HOLD').length,
+                Done: automations.filter(a => a.status === 'Done').length
+            };
+
+            document.getElementById('kpiHealth').textContent = avgSuccessRate.toFixed(1) + '%';
+            document.getElementById('kpiExecToday').textContent = totalExecToday.toLocaleString();
+            document.getElementById('kpiFailures').textContent = failures;
+            document.getElementById('kpiFailureRate').textContent = failureRate.toFixed(1) + '% failure rate';
+            document.getElementById('kpiActive').textContent = statusCounts.Running + statusCounts.Deployed;
+            document.getElementById('kpiPipeline').textContent = statusCounts.Testing + statusCounts.Building;
+
+            // Pipeline stages
+            document.getElementById('pipeBuilding').textContent = statusCounts.Building;
+            document.getElementById('pipeTesting').textContent = statusCounts.Testing;
+            document.getElementById('pipeDeployed').textContent = statusCounts.Deployed;
+            document.getElementById('pipeRunning').textContent = statusCounts.Running;
+
+            // Alerts - automations with issues or low health
+            const needsAttention = automations.filter(a =>
+                (a.status === 'Running' && a.health < 80) ||
+                a.openIssues > 0 ||
+                (a.feedback && a.feedback.toLowerCase().includes('fix'))
+            ).slice(0, 3);
+
+            const alertsContainer = document.getElementById('alertsContainer');
+            alertsContainer.innerHTML = needsAttention.map(a => `
+                <div class="alert-box ${a.health < 70 ? '' : 'warning'}">
+                    <div class="alert-header">
+                        <div class="alert-title">${a.name}</div>
+                        <span class="alert-badge ${a.health < 70 ? 'high' : 'medium'}">${a.health < 70 ? 'High' : 'Medium'}</span>
+                    </div>
+                    <div class="alert-desc">${a.feedback || 'Health below threshold - needs review'}</div>
+                    <div class="alert-meta">
+                        <span>Owner: ${a.owner}</span>
+                        <span>Health: ${a.health}%</span>
+                    </div>
+                </div>
+            `).join('') || '<p class="text-muted">No alerts at this time</p>';
+
+            // Team capacity
+            const ownerCounts = {};
+            automations.forEach(a => {
+                if (a.owner) {
+                    ownerCounts[a.owner] = (ownerCounts[a.owner] || 0) + 1;
+                }
+            });
+
+            const sortedOwners = Object.entries(ownerCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            const maxCount = Math.max(...sortedOwners.map(o => o[1]));
+
+            const capacityContainer = document.getElementById('capacityContainer');
+            capacityContainer.innerHTML = sortedOwners.map(([owner, count]) => {
+                const percent = (count / maxCount) * 100;
+                const fillClass = percent > 60 ? 'high' : percent > 30 ? 'medium' : 'low';
+                return `
+                    <div class="capacity-item">
+                        <div class="capacity-header">
+                            <span class="capacity-name">${owner}</span>
+                            <span class="capacity-count">${count} automations</span>
+                        </div>
+                        <div class="capacity-bar">
+                            <div class="capacity-fill ${fillClass}" style="width:${percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ============================================
+        // BUILDER VIEW
+        // ============================================
+        function updateBuilderView() {
+            const totalNodes = automations.reduce((sum, a) => sum + a.nodes, 0);
+            const activeAutomations = automations.filter(a => a.avgTime > 0);
+            const avgTime = activeAutomations.length > 0
+                ? activeAutomations.reduce((sum, a) => sum + a.avgTime, 0) / activeAutomations.length
+                : 0;
+            const uniqueApis = new Set(automations.map(a => a.api).filter(a => a)).size;
+            const documented = automations.filter(a => a.docs === 'Complete').length;
+            const totalExecToday = automations.reduce((sum, a) => sum + a.execToday, 0);
+            const avgSuccessRate = activeAutomations.length > 0
+                ? activeAutomations.reduce((sum, a) => sum + a.successRate, 0) / activeAutomations.length
+                : 100;
+            const errors = Math.round(totalExecToday * ((100 - avgSuccessRate) / 100));
+
+            document.getElementById('kpiNodes').textContent = totalNodes;
+            document.getElementById('kpiAvgTime').textContent = avgTime.toFixed(1) + 's';
+            document.getElementById('kpiApis').textContent = uniqueApis;
+            document.getElementById('kpiDocs').textContent = documented;
+            document.getElementById('kpiErrors').textContent = errors;
+
+            // Dependency map
+            const apiDeps = {};
+            automations.forEach(a => {
+                if (a.api && (a.status === 'Running' || a.status === 'Deployed')) {
+                    apiDeps[a.api] = (apiDeps[a.api] || 0) + 1;
+                }
+            });
+
+            const dependencyMap = document.getElementById('dependencyMap');
+            dependencyMap.innerHTML = Object.entries(apiDeps)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 4)
+                .map(([api, count]) => {
+                    const iconClass = api.toLowerCase().includes('openai') ? 'openai' :
+                                     api.toLowerCase().includes('google') ? 'google' : 'rest';
+                    const icon = api.toLowerCase().includes('openai') ? '&#129302;' :
+                                api.toLowerCase().includes('google') ? '&#9729;' : '&#128268;';
+                    return `
+                        <div class="dep-item">
+                            <div class="dep-icon ${iconClass}">${icon}</div>
+                            <div class="dep-info">
+                                <div class="dep-name">${api}</div>
+                                <div class="dep-count">${count} automations depend on this</div>
+                            </div>
+                            <div class="dep-impact">If down -> ${count} break</div>
+                        </div>
+                    `;
+                }).join('');
+
+            // Performance leaderboard
+            const runningAutomations = automations.filter(a => a.status === 'Running' && a.avgTime > 0);
+            const fastest = [...runningAutomations].sort((a, b) => a.avgTime - b.avgTime)[0];
+            const slowest = [...runningAutomations].sort((a, b) => b.avgTime - a.avgTime)[0];
+
+            const performanceList = document.getElementById('performanceList');
+            performanceList.innerHTML = `
+                ${fastest ? `<div class="top-item"><span class="top-rank" style="background:var(--accent-green)">&#127942;</span><span class="top-name">Fastest: ${fastest.name}</span><span class="top-value">${fastest.avgTime.toFixed(1)}s avg</span></div>` : ''}
+                ${slowest ? `<div class="top-item"><span class="top-rank" style="background:var(--accent-red)">&#128034;</span><span class="top-name">Slowest: ${slowest.name}</span><span class="top-value text-red">${slowest.avgTime.toFixed(1)}s avg</span></div>` : ''}
+            `;
+        }
+
+        // ============================================
+        // CHARTS
+        // ============================================
+        function initCharts() {
+            Chart.defaults.color = '#a1a1aa';
+            Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+
+            // Status distribution chart
+            const statusCounts = {
+                Running: automations.filter(a => a.status === 'Running').length,
+                Deployed: automations.filter(a => a.status === 'Deployed').length,
+                Testing: automations.filter(a => a.status === 'Testing').length,
+                Building: automations.filter(a => a.status === 'Building').length,
+                HOLD: automations.filter(a => a.status === 'HOLD').length,
+                Done: automations.filter(a => a.status === 'Done').length
+            };
+
+            if (charts.statusChart) charts.statusChart.destroy();
+            charts.statusChart = new Chart(document.getElementById('founderStatusChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(statusCounts),
+                    datasets: [{
+                        data: Object.values(statusCounts),
+                        backgroundColor: ['#22c55e', '#06b6d4', '#eab308', '#3b82f6', '#ef4444', '#71717a'],
+                        borderWidth: 0,
+                        spacing: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 10, font: { size: 11 } } } }
+                }
+            });
+
+            // Cost by category chart
+            const categoryCosts = {};
+            automations.forEach(a => {
+                const cat = a.category || 'Other';
+                categoryCosts[cat] = (categoryCosts[cat] || 0) + a.monthlyCost;
+            });
+
+            const sortedCategories = Object.entries(categoryCosts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+            if (charts.costChart) charts.costChart.destroy();
+            charts.costChart = new Chart(document.getElementById('founderCostChart'), {
+                type: 'bar',
+                data: {
+                    labels: sortedCategories.map(c => c[0].substring(0, 10)),
+                    datasets: [{
+                        data: sortedCategories.map(c => c[1]),
+                        backgroundColor: ['#a855f7', '#ec4899', '#f97316', '#3b82f6', '#06b6d4', '#22c55e'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: '#3f3f46' }, ticks: { callback: v => '$' + v } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Owner chart
+            const ownerCounts = {};
+            automations.forEach(a => {
+                if (a.owner) {
+                    ownerCounts[a.owner] = (ownerCounts[a.owner] || 0) + 1;
+                }
+            });
+
+            const sortedOwners = Object.entries(ownerCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+            if (charts.ownerChart) charts.ownerChart.destroy();
+            charts.ownerChart = new Chart(document.getElementById('founderOwnerChart'), {
+                type: 'bar',
+                data: {
+                    labels: sortedOwners.map(o => o[0]),
+                    datasets: [{
+                        label: 'Automations',
+                        data: sortedOwners.map(o => o[1]),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#3f3f46' } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Error chart
+            if (charts.errorChart) charts.errorChart.destroy();
+            charts.errorChart = new Chart(document.getElementById('builderErrorChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['API Timeout', 'Rate Limit', 'Auth Failed', 'Data Error', 'Network'],
+                    datasets: [{
+                        data: [45, 32, 18, 24, 14],
+                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#a855f7', '#3b82f6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '50%',
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 8, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        // ============================================
+        // TABLES
+        // ============================================
+        function populateManagerTable() {
+            const tbody = document.querySelector('#managerTable tbody');
+            tbody.innerHTML = '';
+
+            automations.forEach(a => {
+                const statusClass = a.status.toLowerCase().replace(' ', '');
+                const healthClass = a.health >= 80 ? 'good' : a.health >= 60 ? 'ok' : 'bad';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${a.name}</strong></td>
+                    <td><span class="status-badge ${statusClass}">&#9679; ${a.status}</span></td>
+                    <td>
+                        <div class="health-bar"><div class="health-fill ${healthClass}" style="width:${a.health}%"></div></div>
+                        <span class="mono" style="font-size:11px;color:var(--text-muted)">${a.health}%</span>
+                    </td>
+                    <td class="mono text-muted" style="font-size:11px">${a.lastRun || '-'}</td>
+                    <td class="mono">${a.execToday}</td>
+                    <td class="mono ${a.successRate >= 95 ? 'text-green' : a.successRate >= 85 ? 'text-yellow' : 'text-red'}">${a.successRate}%</td>
+                    <td>${a.owner}</td>
+                    <td class="text-muted">${a.backup || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function populateBuilderTable() {
+            const tbody = document.querySelector('#builderTable tbody');
+            tbody.innerHTML = '';
+
+            automations.forEach(a => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${a.name}</strong></td>
+                    <td>${a.trigger}</td>
+                    <td class="text-muted">${a.schedule || '-'}</td>
+                    <td>${a.api}</td>
+                    <td class="mono">${a.nodes}</td>
+                    <td class="mono">${a.avgTime}s</td>
+                    <td><span class="${a.docs === 'Complete' ? 'text-green' : a.docs === 'Partial' ? 'text-yellow' : 'text-muted'}">${a.docs || 'None'}</span></td>
+                    <td><a href="${a.url || CONFIG.N8N_BASE_URL + a.workflowId}" target="_blank" style="color:var(--accent-blue)">Open &#8594;</a></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+
+            // Auto-refresh
+            setInterval(() => {
+                console.log('Auto-refreshing data...');
+                loadAllData();
+            }, CONFIG.REFRESH_INTERVAL);
+        });
     </script>
 </body>
 </html>
